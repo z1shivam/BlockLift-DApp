@@ -1,4 +1,9 @@
+import AiChatHome from "@/components/global/AiChatHome";
 
 export default function Page() {
-  return <div>shivams</div>;
+  return (
+    <div>
+      <AiChatHome />
+    </div>
+  );
 }

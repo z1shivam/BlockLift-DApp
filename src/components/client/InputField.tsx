@@ -26,7 +26,7 @@ export default function InputField({
 }: InputFieldProps) {
 
   return (
-    <div className="fixed bottom-0 h-24 w-full space-y-2 border-t-2 border-slate-200 px-3 pt-3 backdrop-blur-md">
+    <div className="fixed bottom-0 pb-0 md:pb-3 w-full space-y-2 border-t-2 border-slate-200 px-3 pt-3 backdrop-blur-md">
       <div className="mx-auto flex max-w-4xl items-center gap-2">
         <RiSparklingLine className="h-5 w-5 text-emerald-800" />
         <Input
@@ -51,7 +51,7 @@ export default function InputField({
           )}
         </Button>
       </div>
-      <div className="mx-auto flex max-w-4xl items-center pl-8 text-sm text-slate-500">
+      <div className="mx-auto md:flex max-w-4xl items-center pl-8 text-sm text-slate-500 hidden">
         <span>Powered by Gemini 2.0 Flash</span> <LuDot />
         <span
           className="cursor-pointer text-red-600 hover:underline"

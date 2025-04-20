@@ -15,6 +15,7 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [shouldScroll, setShouldScroll] = useState(true);
 
   const {
     isTyping,
@@ -36,6 +37,28 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
     scrollToBottom();
     setIsTyping(false);
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShouldScroll(entry!.isIntersecting);
+      },
+      {
+        root: null,
+        threshold: 0.5,
+      },
+    );
+
+    const endRef = messagesEndRef.current;
+
+    if (endRef) {
+      observer.observe(endRef);
+    }
+
+    return () => {
+      if (endRef) observer.unobserve(endRef);
+    };
   }, []);
 
   useEffect(() => {
@@ -121,6 +144,9 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
       const inputId = addMessage(input, "user");
       fetchResponse(input, inputId);
       setInput("");
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
     }
   };
 
@@ -131,7 +157,9 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (shouldScroll && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   return (
@@ -143,7 +171,7 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
               key={message.id}
               className={`flex w-full flex-col py-1.5 ${message.sender == "user" ? "items-end" : "items-start"}`}
             >
-              <p className="px-12 text-sm text-slate-500">
+              <p className="px-2 text-sm text-slate-500 md:px-12">
                 {new Date(message.timestamp).toLocaleDateString("en-US", {
                   year: "2-digit",
                   month: "short",
@@ -158,7 +186,7 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
                 className={`flex ${message.sender == "bot" ? "flex-row-reverse" : ""}`}
               >
                 <div
-                  className={`prose relative max-w-2xl rounded-md px-3 py-2 ${message.sender == "user" ? "bg-emerald-100" : "bg-slate-100"} w-fit`}
+                  className={`prose relative max-w-[330px] rounded-md px-3 py-2 md:max-w-2xl ${message.sender == "user" ? "bg-emerald-100" : "bg-slate-100"} w-fit`}
                 >
                   {message.content == "" ? (
                     <RiLoader4Fill className="size-4 animate-spin" />
@@ -171,11 +199,15 @@ export default function AiChatbot({ chatId }: { chatId: string }) {
                   )}
                   <div className="absolute right-0 -bottom-4 float-right flex text-emerald-500">
                     {message.sender == "user" &&
-                      (message.answered ? <BsCheckAll /> : <BsCheck />)}
+                      (message.answered ? (
+                        <BsCheckAll title="Query Answered" />
+                      ) : (
+                        <BsCheck title="Query Unanswered" />
+                      ))}
                   </div>
                 </div>
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${message.sender == "user" ? "ml-2 bg-emerald-100 text-emerald-800" : "mr-2 bg-slate-100 text-slate-800"}`}
+                  className={`hidden h-8 w-8 items-center justify-center rounded-full md:flex ${message.sender == "user" ? "ml-2 bg-emerald-100 text-emerald-800" : "mr-2 bg-slate-100 text-slate-800"}`}
                 >
                   {message.sender == "user" ? <FaUser /> : <FaRobot />}
                 </div>
