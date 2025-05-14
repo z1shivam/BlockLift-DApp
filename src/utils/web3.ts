@@ -2,7 +2,7 @@ import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../../config";
 
 export const connectWallet = async () => {
-  if (!window.ethereum) throw new Error("MetaMask not installed");
+  if (!window.ethereum) throw new Error("MetaMask not installed. download it from https://metamask.io/download");
   await window.ethereum.request({ method: "eth_requestAccounts" });
   const provider = new ethers.BrowserProvider(window.ethereum);
   const signer = await provider.getSigner();
