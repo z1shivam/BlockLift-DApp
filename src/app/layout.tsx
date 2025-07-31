@@ -21,7 +21,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geist.variable}`}>
-      <body className="pt-14">
+      <body className="pt-16">
         <Header />
         {children}
         <Toaster />

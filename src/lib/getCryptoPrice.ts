@@ -74,7 +74,7 @@ async function writeCache(data: CryptoPrice[]): Promise<void> {
 
 // Fetch crypto prices from CoinGecko API
 async function fetchCryptoPrices(): Promise<CryptoPrice[]> {
-  const url: string = `${process.env.COIN_GECKO_API_URL}/coins/markets?vs_currency=inr`;
+  const url: string = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=inr`;
   const options: RequestInit = {
     method: "GET",
     headers: {
