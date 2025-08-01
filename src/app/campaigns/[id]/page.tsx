@@ -1,35 +1,153 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { mockCampaigns, mockContributions } from "@/lib/staticData";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CalendarDays, Users, Target, Share2, Heart, Flag } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { CalendarDays, Users, Target, Share2, Heart, Flag, Loader2 } from "lucide-react";
 import { henny_penny } from "@/components/global/Header";
-import ContributeButton from "@/components/global/ContributeButton";
+import { blockchainDataService, type Campaign } from "@/lib/blockchainDataService";
+import { web3Service } from "@/lib/web3Service";
+import { toast } from "sonner";
 
 interface CampaignDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function CampaignDetailPage({ params }: CampaignDetailPageProps) {
-  const { id } = await params;
-  const campaignId = parseInt(id);
-  
-  const campaign = mockCampaigns.find(c => c.id === campaignId);
-  
+export default function CampaignDetailPage({ params }: CampaignDetailPageProps) {
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [contributing, setContributing] = useState(false);
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [campaignId, setCampaignId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const loadCampaign = async () => {
+      try {
+        const resolvedParams = await params;
+        const id = parseInt(resolvedParams.id);
+        setCampaignId(id);
+        
+        if (isNaN(id)) {
+          setLoading(false);
+          return;
+        }
+
+        // Get all campaigns and find the one with matching ID
+        const campaigns = await blockchainDataService.getAllCampaigns();
+        const foundCampaign = campaigns.find(c => c.id === id);
+        
+        if (foundCampaign) {
+          setCampaign(foundCampaign);
+        }
+        
+        // Check if user wallet is connected
+        if (typeof window !== 'undefined' && window.ethereum) {
+          try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) {
+              setUserAddress(accounts[0]);
+            }
+          } catch (error) {
+            console.error('Error checking wallet connection:', error);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading campaign:', error);
+        toast.error('Failed to load campaign details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCampaign();
+  }, [params]);
+
+  const handleContribute = async () => {
+    if (!campaign || !contributionAmount || !campaignId) {
+      toast.error('Please enter a valid contribution amount');
+      return;
+    }
+
+    // Check if wallet is connected
+    if (!userAddress) {
+      // Try to connect wallet first
+      try {
+        if (typeof window !== 'undefined' && window.ethereum) {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          if (accounts.length > 0) {
+            setUserAddress(accounts[0]);
+          } else {
+            toast.error('Please connect your MetaMask wallet');
+            return;
+          }
+        } else {
+          toast.error('MetaMask not found. Please install MetaMask to contribute.');
+          return;
+        }
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+        toast.error('Failed to connect wallet');
+        return;
+      }
+    }
+
+    // Check if user is trying to contribute to their own campaign
+    if (userAddress && campaign.creator.toLowerCase() === userAddress.toLowerCase()) {
+      toast.error('You cannot contribute to your own campaign');
+      return;
+    }
+
+    try {
+      setContributing(true);
+      await web3Service.contribute(campaignId, parseFloat(contributionAmount));
+      
+      // Refresh campaign data after contribution
+      const campaigns = await blockchainDataService.getAllCampaigns();
+      const updatedCampaign = campaigns.find(c => c.id === campaignId);
+      if (updatedCampaign) {
+        setCampaign(updatedCampaign);
+      }
+      
+      setContributionAmount("");
+      toast.success('Contribution successful!');
+    } catch (error) {
+      console.error('Error contributing:', error);
+      toast.error('Failed to contribute. Please try again.');
+    } finally {
+      setContributing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading campaign details...</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!campaign) {
     notFound();
   }
 
-  const contributions = mockContributions.filter(c => c.campaignId === campaignId);
-  const progressPercentage = (parseFloat(campaign.raised) / parseFloat(campaign.goal)) * 100;
-  const daysLeft = Math.ceil((new Date(campaign.deadline).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-  const isCompleted = campaign.completed;
+  const goalAmount = parseFloat(campaign.goal || '0');
+  const currentAmount = parseFloat(campaign.totalRaised || '0');
+  const progressPercentage = goalAmount > 0 ? (currentAmount / goalAmount) * 100 : 0;
+  const daysLeft = Math.ceil((campaign.deadline * 1000 - Date.now()) / (1000 * 3600 * 24));
+  const isCompleted = campaign.goalReached;
   const isExpired = daysLeft < 0 && !isCompleted;
+  const isOwnCampaign = userAddress && campaign.creator.toLowerCase() === userAddress.toLowerCase();
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -40,7 +158,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           <div className="lg:col-span-2">
             <div className="relative h-96 w-full rounded-xl overflow-hidden mb-4">
               <Image
-                src={campaign.image}
+                src={campaign.imageHash || "/hero-image.png"}
                 alt={campaign.title}
                 fill
                 className="object-cover"
@@ -66,12 +184,14 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                 <div className="flex items-center gap-3">
                   <Avatar>
                     <AvatarFallback className="bg-emerald-600 text-white">
-                      {campaign.creatorName.charAt(0)}
+                      {campaign.creator.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium text-gray-900">{campaign.creatorName}</p>
-                    <p className="text-sm text-gray-500">{campaign.creator.slice(0, 8)}...{campaign.creator.slice(-6)}</p>
+                    <p className="font-medium text-gray-900">
+                      {campaign.creator.slice(0, 6)}...{campaign.creator.slice(-4)}
+                    </p>
+                    <p className="text-sm text-gray-500">Campaign Creator</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -103,22 +223,22 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-2xl font-bold text-emerald-800">
-                      {campaign.raised} ETH
+                      {currentAmount.toFixed(4)} ETH
                     </span>
                     <span className="text-sm text-gray-500">
                       {progressPercentage.toFixed(1)}%
                     </span>
                   </div>
-                  <Progress value={progressPercentage} className="h-3 mb-2" />
+                  <Progress value={Math.min(progressPercentage, 100)} className="h-3 mb-2" />
                   <p className="text-sm text-gray-600">
-                    of {campaign.goal} ETH goal
+                    of {goalAmount.toFixed(4)} ETH goal
                   </p>
                 </div>
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 py-4 border-y">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-emerald-800">{campaign.contributors}</div>
+                    <div className="text-2xl font-bold text-emerald-800">{campaign.contributorCount}</div>
                     <div className="text-sm text-gray-600">Contributors</div>
                   </div>
                   <div className="text-center">
@@ -131,22 +251,64 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   </div>
                 </div>
 
-                {/* Contribute Button */}
-                <ContributeButton 
-                  campaignId={campaign.id}
-                  isCompleted={isCompleted}
-                  isExpired={isExpired}
-                />
+                {/* Contribute Section */}
+                {!isExpired && !isCompleted && (
+                  <div className="space-y-3">
+                    {isOwnCampaign ? (
+                      <div className="text-center p-4 bg-gray-100 rounded-lg">
+                        <p className="text-sm text-gray-600">This is your campaign</p>
+                        <p className="text-xs text-gray-500 mt-1">You cannot contribute to your own campaign</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            Contribution Amount (ETH)
+                          </label>
+                          <Input
+                            type="number"
+                            placeholder="0.01"
+                            step="0.001"
+                            min="0"
+                            value={contributionAmount}
+                            onChange={(e) => setContributionAmount(e.target.value)}
+                          />
+                        </div>
+                        <Button 
+                          onClick={handleContribute}
+                          disabled={contributing || !contributionAmount}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          {contributing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Contributing...
+                            </>
+                          ) : !userAddress ? (
+                            'Connect Wallet & Support'
+                          ) : (
+                            'Support This Campaign'
+                          )}
+                        </Button>
+                        {!userAddress && (
+                          <p className="text-xs text-gray-500 text-center mt-2">
+                            MetaMask will be required to contribute
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Campaign Details */}
                 <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4" />
-                    <span>Deadline: {new Date(campaign.deadline).toLocaleDateString()}</span>
+                    <span>Deadline: {new Date(campaign.deadline * 1000).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4" />
-                    <span>Created: {new Date(campaign.createdAt).toLocaleDateString()}</span>
+                    <span>Created: {new Date(campaign.createdAt * 1000).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -159,7 +321,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="story">Campaign Story</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
-            <TabsTrigger value="contributors">Contributors ({contributions.length})</TabsTrigger>
+            <TabsTrigger value="contributors">Contributors ({campaign.contributorCount})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="story" className="mt-6">
@@ -172,8 +334,8 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                   <p className="text-gray-700 leading-relaxed mb-4">
                     {campaign.description}
                   </p>
-                  <div className="whitespace-pre-line text-gray-700">
-                    {campaign.story}
+                  <div className="whitespace-pre-wrap text-gray-700">
+                    {campaign.description || 'No detailed story provided for this campaign.'}
                   </div>
                 </div>
               </CardContent>
@@ -197,44 +359,13 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           <TabsContent value="contributors" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Contributors</CardTitle>
+                <CardTitle>Contributors</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {contributions.length > 0 ? (
-                    contributions.map((contribution) => (
-                      <div key={contribution.id} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                        <Avatar>
-                          <AvatarFallback className="bg-emerald-600 text-white">
-                            {contribution.contributorName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-medium text-gray-900">
-                              {contribution.contributorName}
-                            </span>
-                            <span className="font-bold text-emerald-700">
-                              {contribution.amount} ETH
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-500 mb-2">
-                            {new Date(contribution.timestamp).toLocaleDateString()} at {new Date(contribution.timestamp).toLocaleTimeString()}
-                          </p>
-                          {contribution.message && (
-                            <p className="text-sm text-gray-700 italic">
-                              "{contribution.message}"
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No contributions yet.</p>
-                      <p className="text-sm">Be the first to support this campaign!</p>
-                    </div>
-                  )}
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">{campaign.contributorCount} Contributors</p>
+                  <p className="text-sm mt-2">Contributor details are kept private for security.</p>
                 </div>
               </CardContent>
             </Card>

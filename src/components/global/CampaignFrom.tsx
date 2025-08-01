@@ -4,7 +4,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { Button } from "../ui/button";
 import {
   Form,
@@ -15,279 +15,147 @@ import {
   FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
+import { toast } from "sonner";
 
-const campaignSchema = z.object({
-  creator: z.string().regex(/^0x[a-fA-F0-9]{40}$/, {
-    message: "Invalid Ethereum address",
-  }),
-  goal: z.number().min(0, {
-    message: "Goal must be a positive number",
-  }),
-  deadline: z.number().min(Date.now(), {
-    message: "Deadline must be in the future",
-  }),
+const basicCampaignSchema = z.object({
   title: z.string().min(3, {
-    message: "Title is required",
+    message: "Title must be at least 3 characters",
   }),
-  image: z.any().optional(), // For simplicity, validate later if needed
-  description: z.string().min(10, {
-    message: "Description is required",
+  goal: z.number().min(0.01, {
+    message: "Goal must be greater than 0",
+  }),
+  deadline: z.string().min(1, {
+    message: "Deadline is required",
   }),
 });
 
 export function CampaignForm() {
-  const [step, setStep] = useState(1);
-  const [direction, setDirection] = useState<"forward" | "backward">("forward");
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<z.infer<typeof campaignSchema>>({
-    resolver: zodResolver(campaignSchema),
+  const form = useForm<z.infer<typeof basicCampaignSchema>>({
+    resolver: zodResolver(basicCampaignSchema),
     defaultValues: {
-      creator: "",
-      goal: 0,
-      deadline: Date.now(),
       title: "",
-      image: "",
-      description: "",
+      goal: 0,
+      deadline: "",
     },
   });
 
-  function onSubmit(values: z.infer<typeof campaignSchema>) {
-    console.log("Campaign Data:", values);
+  function onSubmit(values: z.infer<typeof basicCampaignSchema>) {
+    setIsSubmitting(true);
+    
+    // Store basic campaign data in localStorage for the detailed form
+    localStorage.setItem('campaignDraft', JSON.stringify(values));
+    
+    toast.success("Basic details saved! Redirecting to complete your campaign...");
+    
+    // Redirect to detailed campaign creation page
+    setTimeout(() => {
+      router.push('/create-campaign');
+      setIsSubmitting(false);
+    }, 1000);
   }
 
-  const nextStep = async () => {
-    const isStepValid = await form.trigger(
-      step === 1
-        ? ["creator", "goal", "deadline"]
-        : step === 2
-          ? ["title", "image"]
-          : ["description"],
-    );
-
-    if (isStepValid) {
-      setDirection("forward");
-      setStep((prev) => prev + 1);
-    }
-  };
-
-  const prevStep = () => {
-    setDirection("backward");
-    setStep((prev) => prev - 1);
-  };
-
-  const slideVariants = {
-    enter: (direction: "forward" | "backward") => ({
-      x: direction === "forward" ? 300 : -300,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 500,
-        damping: 30,
-        duration: 0.2,
-      },
-    },
-    exit: (direction: "forward" | "backward") => ({
-      x: direction === "forward" ? -300 : 300,
-      opacity: 0,
-      transition: {
-        type: "spring",
-        stiffness: 500,
-        damping: 30,
-        duration: 0.2,
-      },
-    }),
-  };
+  // Get tomorrow's date as minimum deadline
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="relative w-full overflow-hidden pt-4"
+        className="space-y-6 w-full"
       >
-        <AnimatePresence custom={direction} mode="wait">
-          <motion.div
-            key={step}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            className="space-y-6"
-          >
-            {step === 1 && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="creator"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base text-emerald-800">
-                        Your Wallet Address
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="0x..."
-                          {...field}
-                          className="h-12 border-2 border-emerald-700"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base text-emerald-800">
+                Campaign Title
+              </FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="What's your project about?"
+                  {...field}
+                  className="h-12 border-2 border-emerald-300 focus:border-emerald-500"
                 />
-                <FormField
-                  control={form.control}
-                  name="goal"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base text-emerald-800">
-                        Funding Goal (ETH)
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          className="h-12 border-2 border-emerald-700"
-                          type="number"
-                          placeholder="0"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(Number(e.target.value))
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="deadline"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base text-emerald-800">
-                        Deadline
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          className="h-12 border-2 border-emerald-700"
-                          type="date"
-                          value={
-                            new Date(field.value).toISOString().split("T")[0]
-                          }
-                          onChange={(e) =>
-                            field.onChange(
-                              new Date(e.target.value).setHours(0, 0, 0, 0),
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-            {step === 2 && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base text-emerald-800">
-                        Campaign Title
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Campaign title"
-                          {...field}
-                          className="h-12 border-2 border-emerald-700"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="image"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base text-emerald-800">
-                        Upload Image
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          className="h-12 border-2 border-emerald-700"
-                          onChange={(e) => field.onChange(e.target.files?.[0])}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
+        <FormField
+          control={form.control}
+          name="goal"
+          render={({ field }) => {
+            const ethValue = field.value || 0;
+            const rupeesValue = ethValue * 332820;
+            const formattedRupees = rupeesValue > 0 ? 
+              new Intl.NumberFormat('en-IN', { 
+                style: 'currency', 
+                currency: 'INR',
+                maximumFractionDigits: 0 
+              }).format(rupeesValue) : '';
 
-            {step === 3 && (
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-base text-emerald-800">
-                      Campaign Description (Markdown Supported)
-                    </FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Describe your campaign in detail..."
-                        {...field}
-                        className="min-h-[150px] border-2 border-emerald-700"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            return (
+              <FormItem>
+                <FormLabel className="text-base text-emerald-800 flex items-center justify-between">
+                  <span>Funding Goal (ETH)</span>
+                  {formattedRupees && (
+                    <span className="text-sm font-normal text-emerald-600 bg-emerald-50 px-2 py-1 rounded" title="Approximate conversion at 1 ETH = ₹3,32,820">
+                      ≈ {formattedRupees}
+                    </span>
+                  )}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    className="h-12 border-2 border-emerald-300 focus:border-emerald-500"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
+        />
 
-            <div className="flex justify-between pt-4">
-              {step > 1 && (
-                <Button
-                  type="button"
-                  onClick={prevStep}
-                  className="h-12 bg-gray-500 px-6 text-white hover:bg-gray-600"
-                >
-                  Back
-                </Button>
-              )}
-              {step < 3 && (
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className="h-12 bg-emerald-800 px-6 text-white hover:bg-emerald-900"
-                >
-                  Next
-                </Button>
-              )}
-              {step === 3 && (
-                <Button
-                  type="submit"
-                  className="h-12 bg-emerald-800 px-6 text-white hover:bg-emerald-900"
-                >
-                  Submit Campaign
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
+        <FormField
+          control={form.control}
+          name="deadline"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-base text-emerald-800">
+                Campaign Deadline
+              </FormLabel>
+              <FormControl>
+                <Input
+                  className="h-12 border-2 border-emerald-300 focus:border-emerald-500"
+                  type="date"
+                  min={minDate}
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full h-12 bg-emerald-800 text-white hover:bg-emerald-900 font-semibold"
+        >
+          {isSubmitting ? "Saving..." : "Continue to Full Details"}
+        </Button>
       </form>
     </Form>
   );

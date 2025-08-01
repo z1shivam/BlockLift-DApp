@@ -1,29 +1,97 @@
-# Create T3 App
+# BlockLift - Decentralized Crowdfunding Platform
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A blockchain-based crowdfunding platform built with Next.js, Hardhat, and Ethereum.
 
-## What's next? How do I make an app with this?
+## Prerequisites
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+- Node.js (v18+)
+- pnpm
+- MetaMask browser extension
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+## Quick Setup
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+### 1. Install Dependencies
+```bash
+# Install frontend dependencies
+pnpm install
 
-## Learn More
+# Install contract dependencies
+cd contracts
+pnpm install
+cd ..
+```
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+### 2. Start Blockchain (Terminal 1)
+```bash
+cd contracts
+npx hardhat node --hostname 0.0.0.0
+```
+Keep this terminal running. The blockchain will be available at `http://localhost:8545`
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+### 3. Deploy Smart Contract (Terminal 2)
+```bash
+cd contracts
+npx hardhat run scripts/deploy.js --network localhost
+```
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+### 4. Create Sample Campaigns (Terminal 2)
+```bash
+# From project root
+node sample-campaigns.cjs
+```
 
-## How do I deploy this?
+### 5. Start Web Server (Terminal 3)
+```bash
+# From project root
+pnpm run dev
+```
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+## Access URLs
+
+- **Web App:** http://localhost:3000
+- **Network Access:** http://172.17.212.140:3000
+- **Blockchain RPC:** http://localhost:8545
+
+## MetaMask Setup
+
+Add this network to MetaMask:
+- **Network Name:** Hardhat Local
+- **RPC URL:** http://localhost:8545
+- **Chain ID:** 31337
+- **Currency:** ETH
+
+## Test Accounts (10,000 ETH each)
+
+```
+Account 0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Account 1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+Account 2: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
+```
+
+Import any of these accounts into MetaMask using the private keys from the Hardhat node output.
+
+## Features
+
+- ✅ View campaigns without wallet connection
+- ✅ Filter campaigns by category
+- ✅ Connect wallet to contribute
+- ✅ Create new campaigns
+- ✅ Multi-device network access
+- ✅ Real-time blockchain data
+
+## Project Structure
+
+```
+├── contracts/          # Smart contracts and Hardhat config
+├── src/
+│   ├── app/            # Next.js app router pages
+│   ├── components/     # React components
+│   ├── lib/            # Utilities and blockchain services
+│   └── styles/         # CSS styles
+├── public/             # Static assets
+└── sample-campaigns.cjs # Script to create test campaigns
+```
+
+## Stopping Servers
+
+Press `Ctrl+C` in each terminal to stop the servers.

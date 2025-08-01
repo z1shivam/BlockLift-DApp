@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Wallet } from "lucide-react";
+import { Wallet, Heart } from "lucide-react";
+import { useWallet } from "@/contexts/WalletContext";
 
 interface ContributeButtonProps {
   campaignId: number;
@@ -26,15 +27,24 @@ export default function ContributeButton({ campaignId, isCompleted, isExpired }:
   const [isOpen, setIsOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
+  const { account, connectWallet } = useWallet();
 
   const handleContribute = async () => {
+    if (!account) {
+      toast.error("Please connect your wallet first");
+      await connectWallet();
+      return;
+    }
+
     if (!amount || parseFloat(amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
 
     // Placeholder for future web3 integration
-    toast.success(`Contribution of ${amount} ETH will be processed when web3 is integrated`);
+    toast.success(`Contribution of ${amount} ETH will be processed when web3 is integrated`, {
+      description: `From wallet: ${account.slice(0, 6)}...${account.slice(-4)}`,
+    });
     setIsOpen(false);
     setAmount("");
     setMessage("");
@@ -43,6 +53,7 @@ export default function ContributeButton({ campaignId, isCompleted, isExpired }:
   if (isCompleted) {
     return (
       <Button disabled className="w-full">
+        <Heart className="h-4 w-4 mr-2" />
         Campaign Completed
       </Button>
     );

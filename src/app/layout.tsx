@@ -1,5 +1,6 @@
 import Header from "@/components/global/Header";
 import { Toaster } from "@/components/ui/sonner";
+import { WalletProvider } from "@/contexts/WalletContext";
 import "@/styles/globals.css";
 
 import { type Metadata } from "next";
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable}`}>
       <body className="pt-16">
-        <Header />
-        {children}
-        <Toaster />
+        <WalletProvider>
+          <Header />
+          {children}
+          <Toaster />
+        </WalletProvider>
       </body>
     </html>
   );
