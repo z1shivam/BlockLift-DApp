@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { CalendarDays, Users, Target, Share2, Heart, Flag, Loader2 } from "lucide-react";
+import { CalendarDays, Users, Target, Share2, Heart, Flag, Loader2, Wallet, DollarSign } from "lucide-react";
 import { henny_penny } from "@/components/global/Header";
 import { blockchainDataService, type Campaign } from "@/lib/blockchainDataService";
 import { web3Service } from "@/lib/web3Service";
@@ -27,6 +27,10 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
   const [contributionAmount, setContributionAmount] = useState("");
   const [userAddress, setUserAddress] = useState<string | null>(null);
   const [campaignId, setCampaignId] = useState<number | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [claimingRefund, setClaimingRefund] = useState(false);
+  const [userContribution, setUserContribution] = useState<number>(0);
+  const [canClaimRefund, setCanClaimRefund] = useState(false);
 
   useEffect(() => {
     const loadCampaign = async () => {
@@ -54,6 +58,19 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (accounts.length > 0) {
               setUserAddress(accounts[0]);
+              
+              // Get user's contribution and refund eligibility if campaign exists
+              if (foundCampaign) {
+                try {
+                  const contribution = await web3Service.getUserContribution(id, accounts[0]);
+                  setUserContribution(contribution);
+                  
+                  const canRefund = await web3Service.canClaimRefund(id, accounts[0]);
+                  setCanClaimRefund(canRefund);
+                } catch (error) {
+                  console.error('Error fetching user contribution data:', error);
+                }
+              }
             }
           } catch (error) {
             console.error('Error checking wallet connection:', error);
@@ -126,6 +143,62 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
     }
   };
 
+  const handleWithdrawFunds = async () => {
+    if (!campaignId || !userAddress) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      setWithdrawing(true);
+      const result = await web3Service.withdrawFunds(campaignId);
+      
+      if (result.success) {
+        // Refresh campaign data
+        const campaigns = await blockchainDataService.getAllCampaigns();
+        const updatedCampaign = campaigns.find(c => c.id === campaignId);
+        if (updatedCampaign) {
+          setCampaign(updatedCampaign);
+        }
+      }
+    } catch (error) {
+      console.error('Withdraw error:', error);
+      toast.error('Failed to withdraw funds');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  const handleClaimRefund = async () => {
+    if (!campaignId || !userAddress) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      setClaimingRefund(true);
+      const result = await web3Service.claimRefund(campaignId);
+      
+      if (result.success) {
+        // Update user contribution data
+        setUserContribution(0);
+        setCanClaimRefund(false);
+        
+        // Refresh campaign data
+        const campaigns = await blockchainDataService.getAllCampaigns();
+        const updatedCampaign = campaigns.find(c => c.id === campaignId);
+        if (updatedCampaign) {
+          setCampaign(updatedCampaign);
+        }
+      }
+    } catch (error) {
+      console.error('Refund error:', error);
+      toast.error('Failed to claim refund');
+    } finally {
+      setClaimingRefund(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -158,7 +231,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
           <div className="lg:col-span-2">
             <div className="relative h-96 w-full rounded-xl overflow-hidden mb-4">
               <Image
-                src={campaign.imageHash || "/hero-image.png"}
+                src={campaign.imageHash || "/placeholder.png"}
                 alt={campaign.title}
                 fill
                 className="object-cover"
@@ -300,6 +373,90 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                   </div>
                 )}
 
+                {/* Creator Withdraw Section */}
+                {isOwnCampaign && isCompleted && !campaign.fundsWithdrawn && (
+                  <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <div className="text-center">
+                      <h3 className="font-semibold text-emerald-800">🎉 Goal Reached!</h3>
+                      <p className="text-sm text-emerald-700 mt-1">
+                        Your campaign was successful! You can now withdraw the funds.
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-2">
+                        You'll receive {((parseFloat(campaign.totalRaised) * 97.5) / 100).toFixed(4)} ETH 
+                        (after 2.5% platform fee)
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handleWithdrawFunds}
+                      disabled={withdrawing}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {withdrawing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Withdrawing...
+                        </>
+                      ) : (
+                        '💰 Withdraw Funds to MetaMask'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Funds Already Withdrawn */}
+                {isOwnCampaign && campaign.fundsWithdrawn && (
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-center">
+                      <h3 className="font-semibold text-green-800">✅ Funds Withdrawn</h3>
+                      <p className="text-sm text-green-700 mt-1">
+                        Campaign funds have been successfully withdrawn to your wallet.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* User Contribution Info */}
+                {!isOwnCampaign && userAddress && userContribution > 0 && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-center">
+                      <h3 className="font-semibold text-blue-800">Your Contribution</h3>
+                      <p className="text-lg font-bold text-blue-900">{userContribution.toFixed(4)} ETH</p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        Thank you for supporting this campaign!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Refund Section */}
+                {!isOwnCampaign && userAddress && canClaimRefund && userContribution > 0 && (
+                  <div className="space-y-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="text-center">
+                      <h3 className="font-semibold text-orange-800">💔 Campaign Not Funded</h3>
+                      <p className="text-sm text-orange-700 mt-1">
+                        This campaign didn't reach its goal. You can claim a full refund.
+                      </p>
+                      <p className="text-lg font-bold text-orange-900 mt-2">
+                        Refund Available: {userContribution.toFixed(4)} ETH
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={handleClaimRefund}
+                      disabled={claimingRefund}
+                      className="w-full bg-orange-600 hover:bg-orange-700"
+                    >
+                      {claimingRefund ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Claiming Refund...
+                        </>
+                      ) : (
+                        '💸 Claim Refund to MetaMask'
+                      )}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Campaign Details */}
                 <div className="space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
@@ -337,6 +494,71 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                   <div className="whitespace-pre-wrap text-gray-700">
                     {campaign.description || 'No detailed story provided for this campaign.'}
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Money Flow Information */}
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  How Fund Distribution Works
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-semibold text-blue-800 mb-2">💰 When You Contribute</h4>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Your ETH goes to a smart contract (escrow)</li>
+                        <li>• Funds are NOT sent to creator immediately</li>
+                        <li>• Your contribution is tracked on blockchain</li>
+                        <li>• Maximum 150% of goal can be raised</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="p-4 bg-green-50 rounded-lg">
+                      <h4 className="font-semibold text-green-800 mb-2">✅ Campaign Succeeds</h4>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        <li>• Creator can withdraw funds to their MetaMask</li>
+                        <li>• 97.5% goes to creator</li>
+                        <li>• 2.5% platform fee collected</li>
+                        <li>• Funds transfer as ETH cryptocurrency</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 bg-orange-50 rounded-lg">
+                      <h4 className="font-semibold text-orange-800 mb-2">❌ Campaign Fails</h4>
+                      <ul className="text-sm text-orange-700 space-y-1">
+                        <li>• Contributors can claim full refunds</li>
+                        <li>• 100% of your contribution returned</li>
+                        <li>• Refund goes to your MetaMask wallet</li>
+                        <li>• Creator gets nothing</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="p-4 bg-purple-50 rounded-lg">
+                      <h4 className="font-semibold text-purple-800 mb-2">🔒 Security Features</h4>
+                      <ul className="text-sm text-purple-700 space-y-1">
+                        <li>• Smart contract holds funds (not humans)</li>
+                        <li>• Creators can't contribute to own campaigns</li>
+                        <li>• Automatic refunds for failed campaigns</li>
+                        <li>• Transparent on blockchain</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    <strong>Note:</strong> This is a Web3 platform using cryptocurrency (ETH). 
+                    Funds are distributed to MetaMask wallets, not traditional bank accounts. 
+                    You can transfer ETH to exchanges to convert to fiat currency if needed.
+                  </p>
                 </div>
               </CardContent>
             </Card>

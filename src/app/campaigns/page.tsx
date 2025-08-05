@@ -49,11 +49,13 @@ export default function CampaignsPage() {
   }, []);
 
   const activeCampaigns = campaigns.filter(campaign => 
+    campaign && campaign.id !== undefined && campaign.id !== null &&
     !campaign.goalReached && Date.now() < campaign.deadline * 1000
   );
   
   const completedCampaigns = campaigns.filter(campaign => 
-    campaign.goalReached || Date.now() >= campaign.deadline * 1000
+    campaign && campaign.id !== undefined && campaign.id !== null &&
+    (campaign.goalReached || Date.now() >= campaign.deadline * 1000)
   );
 
   // Filter campaigns by selected category

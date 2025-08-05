@@ -1,15 +1,9 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
-/**
- * @title BlockLift Crowdfunding Platform
- * @dev Production-grade crowdfunding contract with security features
- * @author BlockLift Team
- */
 contract CrowdfundingCampaign is ReentrancyGuard, Ownable, Pausable {
     struct Campaign {
         address payable creator;

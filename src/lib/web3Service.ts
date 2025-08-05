@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 
 // Enhanced Contract ABI for production contract
 const CROWDFUNDING_ABI = [
-  "function createCampaign(string title, string description, string imageHash, string category, uint256 goal, uint256 durationInDays) external returns (uin      const contributionWei = await this.readOnlyContract.getContribution(campaignId, userAddress);256)",
+  "function createCampaign(string _title, string _description, string _imageHash, string _category, uint256 _goal, uint256 _durationInDays) external returns (uint256)",
   "function contribute(uint256 campaignId) external payable",
   "function withdrawFunds(uint256 campaignId) external",
   "function claimRefund(uint256 campaignId) external",
@@ -112,7 +112,37 @@ export class Web3CrowdfundingService {
     try {
       await this.ensureWalletInitialized();
 
+      // Validate inputs before sending to blockchain
+      if (!title || title.length === 0 || title.length > 100) {
+        toast.error("❌ Title must be between 1-100 characters");
+        return { success: false };
+      }
+      
+      if (!description || description.length < 50 || description.length > 1000) {
+        toast.error("❌ Description must be between 50-1000 characters");
+        return { success: false };
+      }
+      
+      if (goalInEth < 0.01 || goalInEth > 1000) {
+        toast.error("❌ Goal must be between 0.01-1000 ETH");
+        return { success: false };
+      }
+      
+      if (durationInDays < 1 || durationInDays > 365) {
+        toast.error("❌ Duration must be between 1-365 days");
+        return { success: false };
+      }
+
       const goalInWei = ethers.parseEther(goalInEth.toString());
+      
+      console.log("Creating campaign with:", {
+        title,
+        description: description.substring(0, 50) + "...",
+        imageHash,
+        category,
+        goalInWei: goalInWei.toString(),
+        durationInDays
+      });
       
       toast.info("🔄 Creating campaign... Please confirm the transaction in MetaMask");
       
@@ -132,10 +162,18 @@ export class Web3CrowdfundingService {
       return { success: true, txHash: receipt.hash };
     } catch (error: any) {
       console.error("Create campaign error:", error);
+      
+      // More specific error handling
       if (error.code === 'ACTION_REJECTED') {
         toast.error("❌ Transaction cancelled by user");
       } else if (error.code === 'INSUFFICIENT_FUNDS') {
         toast.error("❌ Insufficient funds for transaction");
+      } else if (error.message?.includes('InvalidCampaignParameters')) {
+        toast.error("❌ Invalid campaign parameters. Check title (1-100 chars), description (50-1000 chars), and goal (0.01-1000 ETH)");
+      } else if (error.message?.includes('CampaignDurationInvalid')) {
+        toast.error("❌ Invalid campaign duration. Must be between 1-365 days");
+      } else if (error.message?.includes('Function not found')) {
+        toast.error("❌ Contract function not found. Please redeploy the contract");
       } else {
         toast.error(`❌ Failed to create campaign: ${error.reason || error.message}`);
       }
@@ -300,7 +338,7 @@ export class Web3CrowdfundingService {
     try {
       await this.ensureReadOnlyInitialized();
 
-      const contribution = await this.contract.getContribution(campaignId, userAddress);
+      const contribution = await this.readOnlyContract.getContribution(campaignId, userAddress);
       return parseFloat(ethers.formatEther(contribution));
     } catch (error) {
       console.error("Get contribution error:", error);

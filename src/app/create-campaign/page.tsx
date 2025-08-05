@@ -119,10 +119,26 @@ export default function CreateCampaignPage() {
       const now = new Date();
       const durationInDays = Math.ceil((deadlineDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
+      console.log("🔍 Form submission data:", {
+        title: values.title,
+        titleLength: values.title.length,
+        description: values.description,
+        descriptionLength: values.description.length,
+        story: values.story,
+        storyLength: values.story.length,
+        category: values.category,
+        goal: values.goal,
+        durationInDays,
+        imageHash
+      });
+
+      // Use the story field as the description since it's longer and more detailed
+      const finalDescription = values.story || values.description;
+      
       // Create campaign on blockchain
       const result = await web3Service.createCampaign(
         values.title,
-        values.description,
+        finalDescription,
         imageHash,
         values.category,
         values.goal,

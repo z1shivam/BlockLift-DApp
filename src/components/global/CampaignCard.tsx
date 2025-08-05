@@ -11,6 +11,12 @@ interface CampaignCardProps {
 }
 
 export default function CampaignCard({ campaign }: CampaignCardProps) {
+  // Add validation for campaign data
+  if (!campaign || typeof campaign.id === 'undefined' || campaign.id === null) {
+    console.warn('Invalid campaign data passed to CampaignCard:', campaign);
+    return null;
+  }
+
   // Convert string amounts to numbers for calculations
   const goalAmount = parseFloat(campaign.goal || '0');
   const currentAmount = parseFloat(campaign.totalRaised || '0');
@@ -28,7 +34,7 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
       {/* Campaign Image */}
       <div className="relative h-48 w-full">
         <Image
-          src={campaign.imageHash || "/hero-image.png"}
+          src={campaign.imageHash && campaign.imageHash.length > 0 && campaign.imageHash !== "" ? campaign.imageHash : "/hero-image.png"}
           alt={campaign.title}
           fill
           className="object-cover"
@@ -98,7 +104,7 @@ export default function CampaignCard({ campaign }: CampaignCardProps) {
         </div>
 
         {/* Action Button */}
-        <Link href={`/campaigns/${campaign.id}`}>
+        <Link href={`/campaigns/${campaign.id || 'unknown'}`}>
           <Button 
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
             disabled={isExpired}

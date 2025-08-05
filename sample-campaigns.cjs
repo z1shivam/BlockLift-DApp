@@ -4,7 +4,7 @@ const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 const RPC_URL = "http://localhost:8545";
 
 const CROWDFUNDING_ABI = [
-  "function createCampaign(string title, string description, string imageHash, string category, uint256 goal, uint256 durationInDays) external returns (uint256)"
+  "function createCampaign(string _title, string _description, string _imageHash, string _category, uint256 _goal, uint256 _durationInDays) external returns (uint256)"
 ];
 
 const accounts = [

@@ -19,30 +19,30 @@ export const henny_penny = Galindo({
 export default function Header() {
   return (
     <header
-      className={`fixed top-0 h-16 w-full bg-emerald-900 text-white z-50 shadow-lg`}
+      className={`fixed top-0 h-14 w-full bg-emerald-900 text-white z-50`}
     >
       <section className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
         {/* Logo */}
         <Link href={"/"} className="flex items-center gap-3">
-          <span className="text-2xl font-bold">\(o_o)/</span>
+        <span className="text-2xl font-bold">\(o_o)/</span>
           <span className={`${henny_penny.className} text-2xl mt-1`}>BlockLift</span>
         </Link>
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
-          <Link href="/campaigns" className="text-emerald-100 hover:text-white transition-colors">
+          <Link href="/campaigns" className="text-emerald-100 hover:text-white transition-colors hover:underline">
             Campaigns
           </Link>
-          <Link href="/dashboard" className="text-emerald-100 hover:text-white transition-colors">
+          <Link href="/dashboard" className="text-emerald-100 hover:text-white transition-colors hover:underline">
             Dashboard
           </Link>
-          <Link href="/about" className="text-emerald-100 hover:text-white transition-colors">
+          <Link href="/about" className="text-emerald-100 hover:text-white transition-colors hover:underline">
             About
           </Link>
-          <Link href="/docs" className="text-emerald-100 hover:text-white transition-colors">
+          <Link href="/docs" className="text-emerald-100 hover:text-white transition-colors hover:underline">
             Docs
           </Link>
-          <Link href="/help" className="text-emerald-100 hover:text-white transition-colors">
+          <Link href="/help" className="text-emerald-100 hover:text-white transition-colors hover:underline">
             Help
           </Link>
         </nav>
